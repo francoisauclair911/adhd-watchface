@@ -99,22 +99,18 @@ static void tap_handler(AccelAxisType axis, int32_t direction) {
     s_last_tap_ms = 0;
     DictionaryIterator *iter;
     if (app_message_outbox_begin(&iter) != APP_MSG_OK) { return; }
-    dict_write_uint8(iter, MESSAGE_KEY_fetch, 1);
+    dict_write_uint8(iter, MESSAGE_KEY_completeTask, 1);
     app_message_outbox_send();
   } else {
     s_last_tap_ms = now_ms;
+    DictionaryIterator *iter;
+    if (app_message_outbox_begin(&iter) != APP_MSG_OK) { return; }
+    dict_write_uint8(iter, MESSAGE_KEY_fetch, 1);
+    app_message_outbox_send();
   }
 }
 
-static void select_long_click_handler(ClickRecognizerRef recognizer, void *context) {
-  DictionaryIterator *iter;
-  if (app_message_outbox_begin(&iter) != APP_MSG_OK) { return; }
-  dict_write_uint8(iter, MESSAGE_KEY_completeTask, 1);
-  app_message_outbox_send();
-}
-
 static void click_config_provider(void *context) {
-  window_long_click_subscribe(BUTTON_ID_SELECT, 700, select_long_click_handler, NULL);
 }
 
 static void inbox_received_handler(DictionaryIterator *iter, void *context) {
