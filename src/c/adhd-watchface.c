@@ -27,7 +27,11 @@ static TextLayer *s_clock_layer;
 static TextLayer *s_battery_layer;
 static TextLayer *s_date_layer;
 
+#ifdef PBL_SIMULATOR
+static char s_api_text[API_TEXT_MAX + 1] = "laboriosam mollitia et enim quasi adipisci quia provident illum";
+#else
 static char s_api_text[API_TEXT_MAX + 1] = "add src/pkjs/config.js";
+#endif
 static char s_time_buffer[8];
 static char s_battery_buffer[8];
 static char s_date_buffer[16];
