@@ -50,8 +50,12 @@ static void api_text_update_proc(Layer *layer, GContext *ctx) {
   const GRect bounds = layer_get_bounds(layer);
   const GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
   const GRect measure_box = GRect(0, 0, bounds.size.w, bounds.size.h);
-  const GSize used = graphics_text_layout_get_content_size(
+  GSize used = graphics_text_layout_get_content_size(
       s_api_text, font, measure_box, GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter);
+
+  const int16_t line_h = 28;
+  const int16_t max_h = line_h * 3;
+  if (used.h > max_h) used.h = max_h;
 
   const int16_t top = (bounds.size.h - used.h < 0) ? 0 : (bounds.size.h - used.h) / 2;
 
