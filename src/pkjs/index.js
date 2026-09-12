@@ -38,7 +38,6 @@ function sendText(text) {
 function fetchText() {
   if (!ENDPOINT_URL) {
     console.log('No endpoint configured. Add src/pkjs/config.js (see config.example.js).');
-    sendText('add src/pkjs/config.js');
     return;
   }
 
