@@ -5,7 +5,7 @@
 
 // Aura Essential layout for the Pebble Time 2 (200x228):
 //   top color block (API text) / black sep / white band (clock) / black sep / color strip
-#define TOP_BLOCK_H      90                                     // smaller top block
+#define TOP_BLOCK_H      104                                     // smaller top block
 #define SEP_H            6
 #define WHITE_BAND_Y     (TOP_BLOCK_H + SEP_H)                 // 82
 #define WHITE_BAND_H     68                                    // spans 82..149
