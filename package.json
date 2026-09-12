@@ -19,7 +19,8 @@
     "capabilities": ["configurable"],
     "messageKeys": [
       "apiText",
-      "fetch"
+      "fetch",
+      "completeTask"
     ],
     "resources": {
       "media": []

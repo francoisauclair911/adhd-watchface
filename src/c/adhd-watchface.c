@@ -106,6 +106,17 @@ static void tap_handler(AccelAxisType axis, int32_t direction) {
   }
 }
 
+static void select_long_click_handler(ClickRecognizerRef recognizer, void *context) {
+  DictionaryIterator *iter;
+  if (app_message_outbox_begin(&iter) != APP_MSG_OK) { return; }
+  dict_write_uint8(iter, MESSAGE_KEY_completeTask, 1);
+  app_message_outbox_send();
+}
+
+static void click_config_provider(void *context) {
+  window_long_click_subscribe(BUTTON_ID_SELECT, 700, select_long_click_handler, NULL);
+}
+
 static void inbox_received_handler(DictionaryIterator *iter, void *context) {
   Tuple *t = dict_find(iter, MESSAGE_KEY_apiText);
   if (t && t->type == TUPLE_CSTRING) {
@@ -165,6 +176,7 @@ static void prv_window_load(Window *window) {
 
   tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
   accel_tap_service_subscribe(tap_handler);
+  window_set_click_config_provider(window, click_config_provider);
   update_time();
 }
 

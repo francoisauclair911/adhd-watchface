@@ -8,7 +8,8 @@ try { config = require('config'); } catch (e) { config = null; }
 
 var FETCH_TIMEOUT_MS = 8000;
 var MAX_TEXT_LEN = 120;
-var TODOIST_FILTER_URL = 'https://api.todoist.com/api/v1/tasks/filter';
+var TODOIST_FILTER_URL  = 'https://api.todoist.com/api/v1/tasks/filter';
+var TODOIST_CLOSE_URL   = 'https://api.todoist.com/api/v1/tasks/{id}/close';
 
 var currentSettings = {
   source:       'endpoint',
@@ -38,9 +39,18 @@ function saveSettings(s) {
   catch (e) { console.log('Failed to save settings: ' + e); }
 }
 
-var lastSentText = null;
-var inFlight = false;
-var pollTimer = null;
+function loadCachedText() {
+  try { return localStorage.getItem('adhd_last_text') || null; } catch (e) { return null; }
+}
+
+function saveCachedText(text) {
+  try { localStorage.setItem('adhd_last_text', text); } catch (e) {}
+}
+
+var lastSentText  = null;
+var inFlight      = false;
+var pollTimer     = null;
+var currentTaskId = null;
 
 function sendText(text) {
   var msg = String(text).substring(0, MAX_TEXT_LEN);
@@ -69,7 +79,6 @@ function fetchTodoist() {
   var label = currentSettings.todoistLabel;
 
   if (!token || !label) {
-    console.log('Todoist: missing token or label.');
     sendText('configure todoist');
     return;
   }
@@ -80,8 +89,7 @@ function fetchTodoist() {
   var settled = false;
   var timer = setTimeout(function() {
     if (settled) { return; }
-    settled = true;
-    inFlight = false;
+    settled = true; inFlight = false;
     req.abort();
     sendText('offline');
   }, FETCH_TIMEOUT_MS);
@@ -91,38 +99,33 @@ function fetchTodoist() {
   req.setRequestHeader('Authorization', 'Bearer ' + token);
   req.onload = function() {
     if (settled) { return; }
-    settled = true;
-    inFlight = false;
+    settled = true; inFlight = false;
     clearTimeout(timer);
-    if (req.status === 401 || req.status === 403) {
-      sendText('auth error');
-      return;
-    }
-    if (req.status !== 200) {
-      sendText('offline');
-      return;
-    }
+    if (req.status === 401 || req.status === 403) { sendText('auth error'); return; }
+    if (req.status !== 200) { sendText('offline'); return; }
     try {
-      var data = JSON.parse(req.responseText);
+      var data    = JSON.parse(req.responseText);
       var results = data.results;
       if (!results || results.length === 0) {
+        currentTaskId = null;
         sendText('all done!');
+        saveCachedText('all done!');
         return;
       }
+      currentTaskId = results[0].id;
       var title = results[0].content;
       if (typeof title !== 'string' || title.length === 0) {
         sendText('all done!');
+        saveCachedText('all done!');
         return;
       }
       sendText(title);
-    } catch (e) {
-      sendText('offline');
-    }
+      saveCachedText(title);
+    } catch (e) { sendText('offline'); }
   };
   req.onerror = function() {
     if (settled) { return; }
-    settled = true;
-    inFlight = false;
+    settled = true; inFlight = false;
     clearTimeout(timer);
     sendText('offline');
   };
@@ -131,10 +134,7 @@ function fetchTodoist() {
 
 function fetchEndpoint() {
   var url = currentSettings.url;
-  if (!url) {
-    console.log('No endpoint configured.');
-    return;
-  }
+  if (!url) { return; }
 
   var headers = {};
   if (config && config.headers) {
@@ -152,8 +152,7 @@ function fetchEndpoint() {
   var settled = false;
   var timer = setTimeout(function() {
     if (settled) { return; }
-    settled = true;
-    inFlight = false;
+    settled = true; inFlight = false;
     req.abort();
     sendText('offline');
   }, FETCH_TIMEOUT_MS);
@@ -165,19 +164,18 @@ function fetchEndpoint() {
   }
   req.onload = function() {
     if (settled) { return; }
-    settled = true;
-    inFlight = false;
+    settled = true; inFlight = false;
     clearTimeout(timer);
     if (req.status !== 200) { sendText('offline'); return; }
     var text = null;
     try { text = getText(JSON.parse(req.responseText), textPath); } catch (e) {}
     if (typeof text !== 'string' || text.length === 0) { sendText('no data'); return; }
     sendText(text);
+    saveCachedText(text);
   };
   req.onerror = function() {
     if (settled) { return; }
-    settled = true;
-    inFlight = false;
+    settled = true; inFlight = false;
     clearTimeout(timer);
     sendText('offline');
   };
@@ -185,13 +183,39 @@ function fetchEndpoint() {
 }
 
 function fetchText() {
-  if (inFlight) { console.log('In flight, skipping.'); return; }
+  if (inFlight) { return; }
   inFlight = true;
   if (currentSettings.source === 'todoist') {
     fetchTodoist();
   } else {
     fetchEndpoint();
   }
+}
+
+function completeCurrentTask() {
+  if (currentSettings.source !== 'todoist') { return; }
+  var token = currentSettings.todoistToken;
+  var taskId = currentTaskId;
+  if (!token || !taskId) { return; }
+
+  console.log('Completing task: ' + taskId);
+  var url = TODOIST_CLOSE_URL.replace('{id}', taskId);
+  var req = new XMLHttpRequest();
+  req.open('POST', url, true);
+  req.setRequestHeader('Authorization', 'Bearer ' + token);
+  req.setRequestHeader('Content-Length', '0');
+  req.onload = function() {
+    if (req.status === 204 || req.status === 200) {
+      console.log('Task completed: ' + taskId);
+      currentTaskId = null;
+      lastSentText  = null;
+      fetchText();
+    } else {
+      console.log('Complete failed: HTTP ' + req.status);
+    }
+  };
+  req.onerror = function() { console.log('Complete request failed'); };
+  req.send(null);
 }
 
 function startPolling() {
@@ -203,6 +227,14 @@ function startPolling() {
 Pebble.addEventListener('ready', function() {
   console.log('PebbleKit JS ready');
   loadSettings();
+
+  // Show cached text immediately, then fetch fresh in background
+  var cached = loadCachedText();
+  if (cached) {
+    lastSentText = null;
+    sendText(cached);
+  }
+
   fetchText();
   startPolling();
 });
@@ -231,7 +263,8 @@ Pebble.addEventListener('webviewclosed', function(e) {
     });
     if (Array.isArray(s.headers)) currentSettings.headers = s.headers;
     saveSettings(currentSettings);
-    lastSentText = null;
+    lastSentText  = null;
+    currentTaskId = null;
     startPolling();
     fetchText();
     console.log('Settings updated: ' + JSON.stringify(currentSettings));
@@ -241,5 +274,7 @@ Pebble.addEventListener('webviewclosed', function(e) {
 });
 
 Pebble.addEventListener('appmessage', function(e) {
-  if (e.payload && e.payload.fetch === 1) { fetchText(); }
+  if (!e.payload) { return; }
+  if (e.payload.fetch        === 1) { fetchText(); }
+  if (e.payload.completeTask === 1) { completeCurrentTask(); }
 });
