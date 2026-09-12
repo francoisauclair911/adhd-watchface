@@ -3,8 +3,6 @@
 
 #define API_TEXT_MAX 120
 
-// Aura Essential layout for the Pebble Time 2 (200x228):
-//   top color block (API text) / black sep / white band (clock) / black sep / color strip
 #define TOP_BLOCK_H      104
 #define SEP_H            6
 #define WHITE_BAND_Y     (TOP_BLOCK_H + SEP_H)
@@ -14,6 +12,9 @@
 #define STRIP_H          (228 - STRIP_Y)
 
 #define THEME_COLOR GColorFromRGB(230, 110, 107)
+
+#define PERSIST_KEY_API_TEXT   1
+#define DOUBLE_TAP_WINDOW_MS   500
 
 static const char *const s_weekdays[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
 static const char *const s_months[]   = {"JAN", "FEB", "MAR", "APR", "MAY", "JUN",
@@ -27,17 +28,31 @@ static TextLayer *s_clock_layer;
 static TextLayer *s_battery_layer;
 static TextLayer *s_date_layer;
 
-#define PERSIST_KEY_API_TEXT 1
-
 static char s_api_text[API_TEXT_MAX + 1] = "";
 static char s_time_buffer[8];
 static char s_battery_buffer[8];
 static char s_date_buffer[16];
 static int  s_battery_percent = 100;
 
-// Double-tap detection
-static uint32_t s_last_tap_ms = 0;
-#define DOUBLE_TAP_WINDOW_MS 500
+static uint32_t    s_first_tap_ms = 0;
+static AppTimer   *s_tap_timer    = NULL;
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+static void set_status_text(const char *text) {
+  strncpy(s_api_text, text, API_TEXT_MAX);
+  s_api_text[API_TEXT_MAX] = '\0';
+  layer_mark_dirty(s_api_layer);
+}
+
+static void send_message(uint8_t key, uint8_t value) {
+  DictionaryIterator *iter;
+  if (app_message_outbox_begin(&iter) != APP_MSG_OK) { return; }
+  dict_write_uint8(iter, key, value);
+  app_message_outbox_send();
+}
+
+// ── draw callbacks ────────────────────────────────────────────────────────────
 
 static void white_band_update_proc(Layer *layer, GContext *ctx) {
   graphics_context_set_fill_color(ctx, GColorWhite);
@@ -52,14 +67,13 @@ static void sep_update_proc(Layer *layer, GContext *ctx) {
 }
 
 static void api_text_update_proc(Layer *layer, GContext *ctx) {
-  const GRect bounds = layer_get_bounds(layer);
-  const GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
-  const GRect measure_box = GRect(0, 0, bounds.size.w, bounds.size.h);
+  const GRect bounds    = layer_get_bounds(layer);
+  const GFont font      = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
+  const GRect measure   = GRect(0, 0, bounds.size.w, bounds.size.h);
   GSize used = graphics_text_layout_get_content_size(
-      s_api_text, font, measure_box, GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter);
+      s_api_text, font, measure, GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter);
 
-  const int16_t line_h = 28;
-  const int16_t max_h  = line_h * 3;
+  const int16_t max_h = 28 * 3;
   if (used.h > max_h) used.h = max_h;
 
   const int16_t top = (bounds.size.h - used.h < 0) ? 0 : (bounds.size.h - used.h) / 2;
@@ -70,15 +84,15 @@ static void api_text_update_proc(Layer *layer, GContext *ctx) {
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
 }
 
+// ── time / battery ────────────────────────────────────────────────────────────
+
 static void update_time(void) {
   time_t now = time(NULL);
   struct tm *t = localtime(&now);
-
   int hour12 = t->tm_hour % 12;
   if (hour12 == 0) { hour12 = 12; }
   snprintf(s_time_buffer, sizeof(s_time_buffer), "%d:%02d", hour12, t->tm_min);
   text_layer_set_text(s_clock_layer, s_time_buffer);
-
   snprintf(s_date_buffer, sizeof(s_date_buffer), "%s %s %d",
            s_weekdays[t->tm_wday], s_months[t->tm_mon], t->tm_mday);
   text_layer_set_text(s_date_layer, s_date_buffer);
@@ -94,26 +108,52 @@ static void battery_update(BatteryChargeState state) {
   text_layer_set_text(s_battery_layer, s_battery_buffer);
 }
 
-static void tap_handler(AccelAxisType axis, int32_t direction) {
+// ── gesture handling ──────────────────────────────────────────────────────────
+
+static void on_single_tap(void *context) {
+  s_tap_timer   = NULL;
+  s_first_tap_ms = 0;
+  set_status_text("...");
+  vibes_short_pulse();
+  send_message(MESSAGE_KEY_fetch, 1);
+}
+
+static void on_double_tap(void) {
+  if (s_tap_timer) {
+    app_timer_cancel(s_tap_timer);
+    s_tap_timer = NULL;
+  }
+  s_first_tap_ms = 0;
+  set_status_text("done!");
+  vibes_double_pulse();
+  send_message(MESSAGE_KEY_completeTask, 1);
+}
+
+static void handle_gesture(void) {
   uint32_t now_ms = (uint32_t)(time_ms(NULL, NULL));
-  uint32_t delta  = now_ms - s_last_tap_ms;
-  if (s_last_tap_ms != 0 && delta < DOUBLE_TAP_WINDOW_MS) {
-    s_last_tap_ms = 0;
-    DictionaryIterator *iter;
-    if (app_message_outbox_begin(&iter) != APP_MSG_OK) { return; }
-    dict_write_uint8(iter, MESSAGE_KEY_completeTask, 1);
-    app_message_outbox_send();
+  if (s_first_tap_ms != 0 && (now_ms - s_first_tap_ms) < DOUBLE_TAP_WINDOW_MS) {
+    on_double_tap();
   } else {
-    s_last_tap_ms = now_ms;
-    DictionaryIterator *iter;
-    if (app_message_outbox_begin(&iter) != APP_MSG_OK) { return; }
-    dict_write_uint8(iter, MESSAGE_KEY_fetch, 1);
-    app_message_outbox_send();
+    s_first_tap_ms = now_ms;
+    if (s_tap_timer) { app_timer_cancel(s_tap_timer); }
+    s_tap_timer = app_timer_register(DOUBLE_TAP_WINDOW_MS, on_single_tap, NULL);
   }
 }
 
-static void click_config_provider(void *context) {
+// Touch handler (emery touchscreen) — only top block
+static void touch_handler(const TouchEvent *event, void *context) {
+  if (event->non_navigational) { return; }
+  if (event->type != TouchEvent_Touchdown) { return; }
+  if (event->y >= TOP_BLOCK_H) { return; }
+  handle_gesture();
 }
+
+// Accel tap fallback (emulator + wrist flick on device)
+static void accel_tap_handler(AccelAxisType axis, int32_t direction) {
+  handle_gesture();
+}
+
+// ── app message ───────────────────────────────────────────────────────────────
 
 static void inbox_received_handler(DictionaryIterator *iter, void *context) {
   Tuple *t = dict_find(iter, MESSAGE_KEY_apiText);
@@ -128,6 +168,8 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context) {
 static void inbox_dropped_handler(AppMessageResult reason, void *context) {
   APP_LOG(APP_LOG_LEVEL_ERROR, "Message dropped: %d", (int)reason);
 }
+
+// ── window ────────────────────────────────────────────────────────────────────
 
 static void prv_window_load(Window *window) {
   Layer *window_layer = window_get_root_layer(window);
@@ -172,16 +214,24 @@ static void prv_window_load(Window *window) {
 
   battery_state_service_subscribe(battery_update);
   battery_update(battery_state_service_peek());
-
   tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
-  accel_tap_service_subscribe(tap_handler);
-  window_set_click_config_provider(window, click_config_provider);
+
+  if (touch_service_is_enabled()) {
+    touch_service_subscribe(touch_handler, NULL);
+  }
+  accel_tap_service_subscribe(accel_tap_handler);
+
   update_time();
 }
 
 static void prv_window_unload(Window *window) {
-  tick_timer_service_unsubscribe();
+  if (s_tap_timer) {
+    app_timer_cancel(s_tap_timer);
+    s_tap_timer = NULL;
+  }
+  touch_service_unsubscribe();
   accel_tap_service_unsubscribe();
+  tick_timer_service_unsubscribe();
   battery_state_service_unsubscribe();
 
   text_layer_destroy(s_date_layer);
@@ -191,6 +241,8 @@ static void prv_window_unload(Window *window) {
   layer_destroy(s_sep_layer);
   layer_destroy(s_api_layer);
 }
+
+// ── init / main ───────────────────────────────────────────────────────────────
 
 static void prv_init(void) {
   if (persist_exists(PERSIST_KEY_API_TEXT)) {

@@ -194,9 +194,15 @@ function fetchText() {
 
 function completeCurrentTask() {
   if (currentSettings.source !== 'todoist') { return; }
-  var token = currentSettings.todoistToken;
+  var token  = currentSettings.todoistToken;
   var taskId = currentTaskId;
-  if (!token || !taskId) { return; }
+  if (!token) { return; }
+  if (!taskId) {
+    console.log('No task ID yet — fetching instead.');
+    lastSentText = null;
+    fetchText();
+    return;
+  }
 
   console.log('Completing task: ' + taskId);
   var url = TODOIST_CLOSE_URL.replace('{id}', taskId);
