@@ -10,17 +10,18 @@ try {
 var ENDPOINT_URL = config && config.url;
 var TEXT_PATH = (config && config.textPath) || 'message';
 var HEADERS = (config && config.headers) || {};
-var REFRESH_MS = 30 * 60 * 1000;
+var POLL_MS = (config && config.pollMs) || (3 * 60 * 1000);
 var FETCH_TIMEOUT_MS = 8000;
 var MAX_TEXT_LEN = 120;
+
+var lastSentText = null;
+var inFlight = false;
 
 function getText(data) {
   var cur = data;
   var parts = TEXT_PATH.split('.');
   for (var i = 0; i < parts.length; i++) {
-    if (cur == null) {
-      return null;
-    }
+    if (cur == null) { return null; }
     cur = cur[parts[i]];
   }
   return cur;
@@ -28,10 +29,16 @@ function getText(data) {
 
 function sendText(text) {
   var msg = String(text).substring(0, MAX_TEXT_LEN);
+  if (msg === lastSentText) {
+    console.log('No change, skipping send: ' + msg);
+    return;
+  }
+  lastSentText = msg;
   Pebble.sendAppMessage({ apiText: msg }, function() {
     console.log('Sent to watch: ' + msg);
   }, function(e) {
     console.log('Send failed: ' + e.error);
+    lastSentText = null;
   });
 }
 
@@ -41,12 +48,19 @@ function fetchText() {
     return;
   }
 
+  if (inFlight) {
+    console.log('Request already in flight, skipping poll.');
+    return;
+  }
+
   console.log('Fetching ' + ENDPOINT_URL);
+  inFlight = true;
 
   var settled = false;
   var timer = setTimeout(function() {
     if (settled) { return; }
     settled = true;
+    inFlight = false;
     req.abort();
     sendText('offline');
   }, FETCH_TIMEOUT_MS);
@@ -61,6 +75,7 @@ function fetchText() {
   req.onload = function() {
     if (settled) { return; }
     settled = true;
+    inFlight = false;
     clearTimeout(timer);
     if (req.status !== 200) {
       console.log('HTTP ' + req.status);
@@ -84,6 +99,7 @@ function fetchText() {
   req.onerror = function() {
     if (settled) { return; }
     settled = true;
+    inFlight = false;
     clearTimeout(timer);
     sendText('offline');
   };
@@ -93,6 +109,7 @@ function fetchText() {
 Pebble.addEventListener('ready', function() {
   console.log('PebbleKit JS ready');
   fetchText();
+  setInterval(fetchText, POLL_MS);
 });
 
 Pebble.addEventListener('appmessage', function(e) {
@@ -100,5 +117,3 @@ Pebble.addEventListener('appmessage', function(e) {
     fetchText();
   }
 });
-
-setInterval(fetchText, REFRESH_MS);
