@@ -21,13 +21,7 @@
       "fetch"
     ],
     "resources": {
-      "media": [
-        {
-          "type": "font",
-          "name": "FONT_BEBAS_88",
-          "file": "fonts/BebasNeue-Regular.ttf"
-        }
-      ]
+      "media": []
     }
   }
 }

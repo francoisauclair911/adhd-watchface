@@ -1,11 +1,12 @@
 # adhd-watchface
 
-An ADHD-friendly watchface for the Core Pebble Time 2 (emery, 200x228, 64-color).
+An ADHD-friendly watchface for the Core Pebble Time 2 (emery, 200x228, 64-color),
+styled after the classic "Essential" three-block layout (cf. Aura Essential).
 
-- Huge 12-hour time (Bebas Neue, full-bleed)
-- Date (weekday month day)
-- Battery icon + percentage (yellow when charging, red when low)
-- One-line text from your own API, refreshed every 30 min (top line, accent color)
+- **Top block** (coral): one line of text from your own API, drawn white with a
+  black outline over the color block, refreshed every 30 min
+- **White band**: a large segmented (LECO) 12-hour clock in the coral theme color
+- **Bottom strip**: coral color strip, closed by black separator lines
 
 ## Building & running
 
@@ -29,12 +30,18 @@ The watchface pulls one line of text from your own endpoint via PebbleKit JS:
 `targetPlatforms` in `package.json` controls which watches you build for. This
 project targets **emery** only (Core Pebble Time 2, 200x228).
 
+## Design
+
+The layout mirrors the Aura Essential face by Miguel Angel Baeyens
+(itself a homage to Essential by Kiezel): a color block for the complications,
+a large segmented clock in a white band, and a color strip below. The three
+complication icons are replaced here by a single API-driven text line.
+
 ## Project layout
 
 ```
 src/c/            C source for the watchface
 src/pkjs/         PebbleKit JS (phone-side) source
-resources/fonts/  Bebas Neue (OFL) used for the big time
 config.example.js Template for the gitignored src/pkjs/config.js
 package.json      Project metadata (UUID, platforms, resources, message keys)
 wscript           Build rules — usually no need to edit
