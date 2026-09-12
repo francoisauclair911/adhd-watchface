@@ -2,7 +2,7 @@
 
 // Hosted settings page URL (GitHub Pages).
 // Replace with your own URL after pushing settings/index.html to GitHub Pages.
-var SETTINGS_URL = 'https://YOUR_GITHUB_USERNAME.github.io/YOUR_REPO/settings/';
+var SETTINGS_URL = 'https://francoisauclair911.github.io/adhd-watchface/';
 
 var config = null;
 try { config = require('config'); } catch (e) { config = null; }
