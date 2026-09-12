@@ -1,7 +1,6 @@
 'use strict';
 
-// Hosted settings page URL (GitHub Pages).
-// Replace with your own URL after pushing settings/index.html to GitHub Pages.
+// Hosted settings page (GitHub Pages)
 var SETTINGS_URL = 'https://francoisauclair911.github.io/adhd-watchface/';
 
 var config = null;
@@ -9,12 +8,16 @@ try { config = require('config'); } catch (e) { config = null; }
 
 var FETCH_TIMEOUT_MS = 8000;
 var MAX_TEXT_LEN = 120;
+var TODOIST_FILTER_URL = 'https://api.todoist.com/api/v1/tasks/filter';
 
 var currentSettings = {
-  url:      (config && config.url)      || '',
-  textPath: (config && config.textPath) || 'message',
-  pollSec:  (config && config.pollMs)   ? Math.round(config.pollMs / 1000) : 180,
-  headers:  []
+  source:       'endpoint',
+  url:          (config && config.url)      || '',
+  textPath:     (config && config.textPath) || 'message',
+  headers:      [],
+  todoistToken: '',
+  todoistLabel: '',
+  pollSec:      (config && config.pollMs) ? Math.round(config.pollMs / 1000) : 180
 };
 
 function loadSettings() {
@@ -22,35 +25,33 @@ function loadSettings() {
     var stored = localStorage.getItem('adhd_settings');
     if (stored) {
       var parsed = JSON.parse(stored);
-      if (parsed.url      !== undefined) currentSettings.url      = parsed.url;
-      if (parsed.textPath !== undefined) currentSettings.textPath = parsed.textPath;
-      if (parsed.pollSec  !== undefined) currentSettings.pollSec  = parsed.pollSec;
-      if (Array.isArray(parsed.headers)) currentSettings.headers  = parsed.headers;
+      ['source','url','textPath','todoistToken','todoistLabel','pollSec'].forEach(function(k) {
+        if (parsed[k] !== undefined) currentSettings[k] = parsed[k];
+      });
+      if (Array.isArray(parsed.headers)) currentSettings.headers = parsed.headers;
     }
-  } catch (e) {
-    console.log('Failed to load settings: ' + e);
-  }
+  } catch (e) { console.log('Failed to load settings: ' + e); }
 }
 
 function saveSettings(s) {
-  try {
-    localStorage.setItem('adhd_settings', JSON.stringify(s));
-  } catch (e) {
-    console.log('Failed to save settings: ' + e);
-  }
+  try { localStorage.setItem('adhd_settings', JSON.stringify(s)); }
+  catch (e) { console.log('Failed to save settings: ' + e); }
 }
 
-function getHeaders() {
-  var out = {};
-  if (config && config.headers) {
-    for (var k in config.headers) {
-      if (config.headers.hasOwnProperty(k)) out[k] = config.headers[k];
-    }
-  }
-  (currentSettings.headers || []).forEach(function(h) {
-    if (h.key) out[h.key] = h.value;
+var lastSentText = null;
+var inFlight = false;
+var pollTimer = null;
+
+function sendText(text) {
+  var msg = String(text).substring(0, MAX_TEXT_LEN);
+  if (msg === lastSentText) { return; }
+  lastSentText = msg;
+  Pebble.sendAppMessage({ apiText: msg }, function() {
+    console.log('Sent: ' + msg);
+  }, function(e) {
+    console.log('Send failed: ' + e.error);
+    lastSentText = null;
   });
-  return out;
 }
 
 function getText(data, textPath) {
@@ -63,44 +64,92 @@ function getText(data, textPath) {
   return cur;
 }
 
-var lastSentText = null;
-var inFlight = false;
-var pollTimer = null;
+function fetchTodoist() {
+  var token = currentSettings.todoistToken;
+  var label = currentSettings.todoistLabel;
 
-function sendText(text) {
-  var msg = String(text).substring(0, MAX_TEXT_LEN);
-  if (msg === lastSentText) {
-    console.log('No change, skipping send.');
+  if (!token || !label) {
+    console.log('Todoist: missing token or label.');
+    sendText('configure todoist');
     return;
   }
-  lastSentText = msg;
-  Pebble.sendAppMessage({ apiText: msg }, function() {
-    console.log('Sent to watch: ' + msg);
-  }, function(e) {
-    console.log('Send failed: ' + e.error);
-    lastSentText = null;
-  });
+
+  var url = TODOIST_FILTER_URL + '?query=' + encodeURIComponent('@' + label) + '&limit=1';
+  console.log('Fetching Todoist: ' + url);
+
+  var settled = false;
+  var timer = setTimeout(function() {
+    if (settled) { return; }
+    settled = true;
+    inFlight = false;
+    req.abort();
+    sendText('offline');
+  }, FETCH_TIMEOUT_MS);
+
+  var req = new XMLHttpRequest();
+  req.open('GET', url, true);
+  req.setRequestHeader('Authorization', 'Bearer ' + token);
+  req.onload = function() {
+    if (settled) { return; }
+    settled = true;
+    inFlight = false;
+    clearTimeout(timer);
+    if (req.status === 401 || req.status === 403) {
+      sendText('auth error');
+      return;
+    }
+    if (req.status !== 200) {
+      sendText('offline');
+      return;
+    }
+    try {
+      var data = JSON.parse(req.responseText);
+      var results = data.results;
+      if (!results || results.length === 0) {
+        sendText('all done!');
+        return;
+      }
+      var title = results[0].content;
+      if (typeof title !== 'string' || title.length === 0) {
+        sendText('all done!');
+        return;
+      }
+      sendText(title);
+    } catch (e) {
+      sendText('offline');
+    }
+  };
+  req.onerror = function() {
+    if (settled) { return; }
+    settled = true;
+    inFlight = false;
+    clearTimeout(timer);
+    sendText('offline');
+  };
+  req.send(null);
 }
 
-function fetchText() {
+function fetchEndpoint() {
   var url = currentSettings.url;
   if (!url) {
-    console.log('No endpoint configured — open settings to set one.');
+    console.log('No endpoint configured.');
     return;
   }
 
-  if (inFlight) {
-    console.log('Request in flight, skipping poll.');
-    return;
+  var headers = {};
+  if (config && config.headers) {
+    for (var k in config.headers) {
+      if (config.headers.hasOwnProperty(k)) headers[k] = config.headers[k];
+    }
   }
-
-  console.log('Fetching ' + url);
-  inFlight = true;
+  (currentSettings.headers || []).forEach(function(h) {
+    if (h.key) headers[h.key] = h.value;
+  });
 
   var textPath = currentSettings.textPath || 'message';
-  var headers  = getHeaders();
-  var settled  = false;
+  console.log('Fetching endpoint: ' + url);
 
+  var settled = false;
   var timer = setTimeout(function() {
     if (settled) { return; }
     settled = true;
@@ -119,16 +168,10 @@ function fetchText() {
     settled = true;
     inFlight = false;
     clearTimeout(timer);
-    if (req.status !== 200) {
-      sendText('offline');
-      return;
-    }
+    if (req.status !== 200) { sendText('offline'); return; }
     var text = null;
     try { text = getText(JSON.parse(req.responseText), textPath); } catch (e) {}
-    if (typeof text !== 'string' || text.length === 0) {
-      sendText('no data');
-      return;
-    }
+    if (typeof text !== 'string' || text.length === 0) { sendText('no data'); return; }
     sendText(text);
   };
   req.onerror = function() {
@@ -139,6 +182,16 @@ function fetchText() {
     sendText('offline');
   };
   req.send(null);
+}
+
+function fetchText() {
+  if (inFlight) { console.log('In flight, skipping.'); return; }
+  inFlight = true;
+  if (currentSettings.source === 'todoist') {
+    fetchTodoist();
+  } else {
+    fetchEndpoint();
+  }
 }
 
 function startPolling() {
@@ -156,10 +209,13 @@ Pebble.addEventListener('ready', function() {
 
 Pebble.addEventListener('showConfiguration', function() {
   var params = encodeURIComponent(JSON.stringify({
-    url:      currentSettings.url,
-    textPath: currentSettings.textPath,
-    pollSec:  currentSettings.pollSec,
-    headers:  currentSettings.headers
+    source:       currentSettings.source,
+    url:          currentSettings.url,
+    textPath:     currentSettings.textPath,
+    headers:      currentSettings.headers,
+    todoistToken: currentSettings.todoistToken,
+    todoistLabel: currentSettings.todoistLabel,
+    pollSec:      currentSettings.pollSec
   }));
   Pebble.openURL(SETTINGS_URL + '?settings=' + params);
 });
@@ -168,10 +224,10 @@ Pebble.addEventListener('webviewclosed', function(e) {
   if (!e.response || e.response === 'CANCELLED') { return; }
   try {
     var s = JSON.parse(decodeURIComponent(e.response));
-    currentSettings.url      = s.url      || currentSettings.url;
-    currentSettings.textPath = s.textPath || currentSettings.textPath;
-    currentSettings.pollSec  = s.pollSec  || currentSettings.pollSec;
-    currentSettings.headers  = Array.isArray(s.headers) ? s.headers : currentSettings.headers;
+    ['source','url','textPath','todoistToken','todoistLabel','pollSec'].forEach(function(k) {
+      if (s[k] !== undefined) currentSettings[k] = s[k];
+    });
+    if (Array.isArray(s.headers)) currentSettings.headers = s.headers;
     saveSettings(currentSettings);
     lastSentText = null;
     startPolling();

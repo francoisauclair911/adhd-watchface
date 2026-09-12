@@ -19,128 +19,75 @@
       background: rgb(230, 110, 107);
       padding: 20px 20px 16px;
     }
-    header h1 {
-      font-size: 20px;
-      font-weight: 700;
-      color: #fff;
-      letter-spacing: 0.03em;
-    }
-    header p {
-      font-size: 13px;
-      color: rgba(255,255,255,0.8);
-      margin-top: 4px;
-    }
+    header h1 { font-size: 20px; font-weight: 700; color: #fff; letter-spacing: 0.03em; }
+    header p  { font-size: 13px; color: rgba(255,255,255,0.8); margin-top: 4px; }
 
-    .section {
-      margin: 20px 16px 0;
-    }
+    .section { margin: 20px 16px 0; }
     .section-title {
-      font-size: 11px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: rgb(230, 110, 107);
-      margin-bottom: 8px;
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.08em; color: rgb(230, 110, 107); margin-bottom: 8px;
     }
-    .card {
+    .card { background: #2a2a2a; border-radius: 10px; overflow: hidden; }
+    .field { padding: 12px 14px; border-bottom: 1px solid #333; }
+    .field:last-child { border-bottom: none; }
+    .field label { display: block; font-size: 12px; color: #999; margin-bottom: 5px; }
+    .field input[type="text"],
+    .field input[type="number"],
+    .field input[type="url"],
+    .field input[type="password"] {
+      width: 100%; background: transparent; border: none;
+      outline: none; color: #f0f0f0; font-size: 15px; padding: 0;
+    }
+    .field input::placeholder { color: #555; }
+
+    /* Source toggle */
+    .toggle-wrap {
+      display: flex;
       background: #2a2a2a;
       border-radius: 10px;
       overflow: hidden;
     }
-    .field {
-      padding: 12px 14px;
-      border-bottom: 1px solid #333;
+    .toggle-btn {
+      flex: 1; padding: 12px; border: none; background: transparent;
+      color: #888; font-size: 14px; font-weight: 600; cursor: pointer;
+      transition: background 0.15s, color 0.15s;
     }
-    .field:last-child { border-bottom: none; }
-    .field label {
-      display: block;
-      font-size: 12px;
-      color: #999;
-      margin-bottom: 5px;
-    }
-    .field input[type="text"],
-    .field input[type="number"],
-    .field input[type="url"] {
-      width: 100%;
-      background: transparent;
-      border: none;
-      outline: none;
-      color: #f0f0f0;
-      font-size: 15px;
-      padding: 0;
-    }
-    .field input::placeholder { color: #555; }
+    .toggle-btn.active { background: rgb(230, 110, 107); color: #fff; }
 
+    /* Headers */
     .header-row {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      padding: 10px 14px;
-      border-bottom: 1px solid #333;
+      display: flex; gap: 8px; align-items: center;
+      padding: 10px 14px; border-bottom: 1px solid #333;
     }
     .header-row:last-child { border-bottom: none; }
     .header-row input {
-      flex: 1;
-      background: transparent;
-      border: none;
-      outline: none;
-      color: #f0f0f0;
-      font-size: 14px;
-      min-width: 0;
+      flex: 1; background: transparent; border: none;
+      outline: none; color: #f0f0f0; font-size: 14px; min-width: 0;
     }
     .header-row input::placeholder { color: #555; }
-    .header-row .sep {
-      color: #555;
-      font-size: 13px;
-      flex-shrink: 0;
-    }
+    .header-row .sep { color: #555; font-size: 13px; flex-shrink: 0; }
     .header-row .remove-btn {
-      background: none;
-      border: none;
-      color: #e05a5a;
-      font-size: 20px;
-      cursor: pointer;
-      line-height: 1;
-      flex-shrink: 0;
-      padding: 0 2px;
+      background: none; border: none; color: #e05a5a;
+      font-size: 20px; cursor: pointer; line-height: 1;
+      flex-shrink: 0; padding: 0 2px;
     }
-
     .add-btn {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      background: none;
-      border: none;
-      color: rgb(230, 110, 107);
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      padding: 10px 14px;
+      display: flex; align-items: center; gap: 6px;
+      background: none; border: none; color: rgb(230, 110, 107);
+      font-size: 14px; font-weight: 600; cursor: pointer; padding: 10px 14px;
     }
     .add-btn::before { content: '+'; font-size: 18px; line-height: 1; }
 
     .save-btn {
-      display: block;
-      width: calc(100% - 32px);
-      margin: 24px 16px 0;
-      background: rgb(230, 110, 107);
-      color: #fff;
-      border: none;
-      border-radius: 10px;
-      font-size: 16px;
-      font-weight: 700;
-      padding: 14px;
-      cursor: pointer;
-      letter-spacing: 0.02em;
+      display: block; width: calc(100% - 32px); margin: 24px 16px 0;
+      background: rgb(230, 110, 107); color: #fff; border: none;
+      border-radius: 10px; font-size: 16px; font-weight: 700;
+      padding: 14px; cursor: pointer; letter-spacing: 0.02em;
     }
     .save-btn:active { opacity: 0.85; }
 
-    .hint {
-      font-size: 12px;
-      color: #666;
-      margin-top: 8px;
-      padding: 0 4px;
-    }
+    .hint { font-size: 12px; color: #666; margin-top: 8px; padding: 0 4px; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
@@ -150,21 +97,57 @@
   <p>Configure your data source</p>
 </header>
 
+<!-- Source selector -->
 <div class="section">
-  <div class="section-title">Endpoint</div>
-  <div class="card">
-    <div class="field">
-      <label>URL</label>
-      <input type="url" id="url" placeholder="https://api.example.com/status" />
-    </div>
-    <div class="field">
-      <label>JSON key path</label>
-      <input type="text" id="textPath" placeholder="message" />
-    </div>
+  <div class="section-title">Source</div>
+  <div class="toggle-wrap">
+    <button class="toggle-btn" id="btn-endpoint" onclick="setSource('endpoint')">Endpoint</button>
+    <button class="toggle-btn" id="btn-todoist"  onclick="setSource('todoist')">Todoist</button>
   </div>
-  <p class="hint">Dot notation supported, e.g. <code>data.status.text</code></p>
 </div>
 
+<!-- Endpoint fields -->
+<div id="section-endpoint">
+  <div class="section">
+    <div class="section-title">Endpoint</div>
+    <div class="card">
+      <div class="field">
+        <label>URL</label>
+        <input type="url" id="url" placeholder="https://api.example.com/status" />
+      </div>
+      <div class="field">
+        <label>JSON key path</label>
+        <input type="text" id="textPath" placeholder="message" />
+      </div>
+    </div>
+    <p class="hint">Dot notation supported, e.g. <code>data.status.text</code></p>
+  </div>
+  <div class="section">
+    <div class="section-title">Headers</div>
+    <div class="card" id="headers-card"></div>
+    <button class="add-btn" id="add-header-btn">Add Header</button>
+  </div>
+</div>
+
+<!-- Todoist fields -->
+<div id="section-todoist" class="hidden">
+  <div class="section">
+    <div class="section-title">Todoist</div>
+    <div class="card">
+      <div class="field">
+        <label>API Token</label>
+        <input type="password" id="todoistToken" placeholder="Your Todoist API token" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label>Label name</label>
+        <input type="text" id="todoistLabel" placeholder="e.g. focus" />
+      </div>
+    </div>
+    <p class="hint">Get your token from Todoist Settings &rarr; Integrations &rarr; Developer.</p>
+  </div>
+</div>
+
+<!-- Shared: poll interval -->
 <div class="section">
   <div class="section-title">Polling</div>
   <div class="card">
@@ -175,19 +158,17 @@
   </div>
 </div>
 
-<div class="section">
-  <div class="section-title">Headers</div>
-  <div class="card" id="headers-card">
-    <!-- header rows injected here -->
-  </div>
-  <button class="add-btn" id="add-header-btn">Add Header</button>
-</div>
-
 <button class="save-btn" id="save-btn">Save</button>
 
 <script>
-  var settings = { url: '', textPath: 'message', pollSec: 180, headers: [] };
+  var settings = {
+    source: 'endpoint',
+    url: '', textPath: 'message', headers: [],
+    todoistToken: '', todoistLabel: '',
+    pollSec: 180
+  };
 
+  // Parse ?settings= query param
   try {
     var raw = location.search.slice(1);
     var params = {};
@@ -197,18 +178,25 @@
     });
     if (params.settings) {
       var parsed = JSON.parse(params.settings);
-      if (parsed.url)      settings.url      = parsed.url;
-      if (parsed.textPath) settings.textPath = parsed.textPath;
-      if (parsed.pollSec)  settings.pollSec  = parsed.pollSec;
+      ['source','url','textPath','todoistToken','todoistLabel','pollSec'].forEach(function(k) {
+        if (parsed[k] !== undefined) settings[k] = parsed[k];
+      });
       if (Array.isArray(parsed.headers)) settings.headers = parsed.headers;
     }
   } catch (e) {}
 
-  document.getElementById('url').value      = settings.url;
-  document.getElementById('textPath').value = settings.textPath;
-  document.getElementById('pollSec').value  = settings.pollSec;
+  // Populate fields
+  document.getElementById('url').value          = settings.url;
+  document.getElementById('textPath').value     = settings.textPath;
+  document.getElementById('pollSec').value      = settings.pollSec;
+  document.getElementById('todoistToken').value = settings.todoistToken;
+  document.getElementById('todoistLabel').value = settings.todoistLabel;
 
   var headersCard = document.getElementById('headers-card');
+
+  function escAttr(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  }
 
   function addHeaderRow(key, value) {
     var row = document.createElement('div');
@@ -224,15 +212,20 @@
     headersCard.appendChild(row);
   }
 
-  function escAttr(s) {
-    return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
-  }
-
   settings.headers.forEach(function(h) { addHeaderRow(h.key, h.value); });
-
   document.getElementById('add-header-btn').addEventListener('click', function() {
     addHeaderRow('', '');
   });
+
+  function setSource(src) {
+    settings.source = src;
+    document.getElementById('btn-endpoint').classList.toggle('active', src === 'endpoint');
+    document.getElementById('btn-todoist').classList.toggle('active',  src === 'todoist');
+    document.getElementById('section-endpoint').classList.toggle('hidden', src !== 'endpoint');
+    document.getElementById('section-todoist').classList.toggle('hidden',  src !== 'todoist');
+  }
+
+  setSource(settings.source || 'endpoint');
 
   document.getElementById('save-btn').addEventListener('click', function() {
     var headers = [];
@@ -243,14 +236,16 @@
     });
 
     var result = {
-      url:      document.getElementById('url').value.trim(),
-      textPath: document.getElementById('textPath').value.trim() || 'message',
-      pollSec:  parseInt(document.getElementById('pollSec').value, 10) || 180,
-      headers:  headers
+      source:       settings.source,
+      url:          document.getElementById('url').value.trim(),
+      textPath:     document.getElementById('textPath').value.trim() || 'message',
+      headers:      headers,
+      todoistToken: document.getElementById('todoistToken').value.trim(),
+      todoistLabel: document.getElementById('todoistLabel').value.trim(),
+      pollSec:      parseInt(document.getElementById('pollSec').value, 10) || 180
     };
 
-    var encoded = encodeURIComponent(JSON.stringify(result));
-    document.location = 'pebblejs://close#' + encoded;
+    document.location = 'pebblejs://close#' + encodeURIComponent(JSON.stringify(result));
   });
 </script>
 </body>
