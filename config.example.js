@@ -1,7 +1,8 @@
-// Copy this file to src/pkjs/config.js and fill in your endpoint.
-// src/pkjs/config.js is gitignored so your URL/tokens never get committed.
+// Compile-time fallback defaults — used only if no settings have been saved
+// via the phone app settings page. Phone settings always take precedence.
 //
-// The watchface shows the string found at `textPath` in the JSON response.
+// Copy this file to src/pkjs/config.js and fill in your values.
+// src/pkjs/config.js is gitignored so your URL/tokens never get committed.
 
 module.exports = {
   url: 'https://example.com/api/message',
