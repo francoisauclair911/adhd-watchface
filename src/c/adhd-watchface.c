@@ -124,7 +124,7 @@ static void prv_window_load(Window *window) {
   const int w = bounds.size.w;
 
   // top color block (window background) + API text, outlined in black
-  s_api_layer = layer_create(GRect(12, 10, w - 24, TOP_BLOCK_H - 20));
+  s_api_layer = layer_create(GRect(12, 6, w - 24, TOP_BLOCK_H - 12));
   layer_set_update_proc(s_api_layer, api_text_update_proc);
   layer_add_child(window_layer, s_api_layer);
 
