@@ -223,7 +223,9 @@ Pebble.addEventListener('showConfiguration', function() {
 Pebble.addEventListener('webviewclosed', function(e) {
   if (!e.response || e.response === 'CANCELLED') { return; }
   try {
-    var s = JSON.parse(decodeURIComponent(e.response));
+    var raw = e.response;
+    if (raw.charAt(0) === '#') { raw = raw.slice(1); }
+    var s = JSON.parse(decodeURIComponent(raw));
     ['source','url','textPath','todoistToken','todoistLabel','pollSec'].forEach(function(k) {
       if (s[k] !== undefined) currentSettings[k] = s[k];
     });
