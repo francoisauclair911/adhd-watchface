@@ -281,6 +281,8 @@ Pebble.addEventListener('webviewclosed', function(e) {
 
 Pebble.addEventListener('appmessage', function(e) {
   if (!e.payload) { return; }
-  if (e.payload.fetch        === 1) { fetchText(); }
-  if (e.payload.completeTask === 1) { completeCurrentTask(); }
+  // Watch side switched to a transient state ("..."/"done!") — the next
+  // fetch may return the same task text, so force a resend.
+  if (e.payload.fetch        === 1) { lastSentText = null; fetchText(); }
+  if (e.payload.completeTask === 1) { lastSentText = null; completeCurrentTask(); }
 });

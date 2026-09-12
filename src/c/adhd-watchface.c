@@ -34,10 +34,20 @@ static char s_battery_buffer[8];
 static char s_date_buffer[16];
 static int  s_battery_percent = 100;
 
-static uint32_t    s_first_tap_ms = 0;
-static AppTimer   *s_tap_timer    = NULL;
+static uint32_t    s_first_tap_ms  = 0;
+static uint32_t    s_last_touch_ms = 0;
+static AppTimer   *s_tap_timer     = NULL;
 
 // ── helpers ──────────────────────────────────────────────────────────────────
+
+#define TOUCH_SUPPRESS_MS 800
+
+static uint32_t now_ms(void) {
+  time_t   secs = 0;
+  uint16_t ms   = 0;
+  time_ms(&secs, &ms);
+  return (uint32_t)secs * 1000u + ms;
+}
 
 static void set_status_text(const char *text) {
   strncpy(s_api_text, text, API_TEXT_MAX);
@@ -130,26 +140,30 @@ static void on_double_tap(void) {
 }
 
 static void handle_gesture(void) {
-  uint32_t now_ms = (uint32_t)(time_ms(NULL, NULL));
-  if (s_first_tap_ms != 0 && (now_ms - s_first_tap_ms) < DOUBLE_TAP_WINDOW_MS) {
+  const uint32_t now = now_ms();
+  if (s_first_tap_ms != 0 && (now - s_first_tap_ms) < DOUBLE_TAP_WINDOW_MS) {
     on_double_tap();
   } else {
-    s_first_tap_ms = now_ms;
+    s_first_tap_ms = now;
     if (s_tap_timer) { app_timer_cancel(s_tap_timer); }
     s_tap_timer = app_timer_register(DOUBLE_TAP_WINDOW_MS, on_single_tap, NULL);
   }
 }
 
-// Touch handler (emery touchscreen) — only top block
+// Touch handler (emery touchscreen) — whole screen
 static void touch_handler(const TouchEvent *event, void *context) {
-  if (event->non_navigational) { return; }
   if (event->type != TouchEvent_Touchdown) { return; }
-  if (event->y >= TOP_BLOCK_H) { return; }
+  // non_navigational == unarmed contact on the idle watchface: exactly the taps we want
+  if (!event->non_navigational) { return; }
+  s_last_touch_ms = now_ms();
   handle_gesture();
 }
 
-// Accel tap fallback (emulator + wrist flick on device)
+// Accel tap fallback (emulator + wrist flick on device).
+// Suppressed right after a screen tap so one physical tap isn't counted twice.
 static void accel_tap_handler(AccelAxisType axis, int32_t direction) {
+  const uint32_t now = now_ms();
+  if (s_last_touch_ms != 0 && (now - s_last_touch_ms) < TOUCH_SUPPRESS_MS) { return; }
   handle_gesture();
 }
 
@@ -216,9 +230,7 @@ static void prv_window_load(Window *window) {
   battery_update(battery_state_service_peek());
   tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
 
-  if (touch_service_is_enabled()) {
-    touch_service_subscribe(touch_handler, NULL);
-  }
+  touch_service_subscribe(touch_handler, NULL);
   accel_tap_service_subscribe(accel_tap_handler);
 
   update_time();
