@@ -149,7 +149,7 @@ static void prv_window_load(Window *window) {
   layer_add_child(window_layer, text_layer_get_layer(s_clock_layer));
 
   // battery indicator: bottom right of color strip, white text
-  s_battery_layer = text_layer_create(GRect(w - 50, STRIP_Y, 48, STRIP_H));
+  s_battery_layer = text_layer_create(GRect(w - 60, STRIP_Y, 58, STRIP_H));
   text_layer_set_background_color(s_battery_layer, GColorClear);
   text_layer_set_text_color(s_battery_layer, GColorWhite);
   text_layer_set_font(s_battery_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
@@ -158,7 +158,7 @@ static void prv_window_load(Window *window) {
   layer_add_child(window_layer, text_layer_get_layer(s_battery_layer));
 
   // date indicator: bottom left of color strip, white text
-  s_date_layer = text_layer_create(GRect(2, STRIP_Y, 100, STRIP_H));
+  s_date_layer = text_layer_create(GRect(8, STRIP_Y, 110, STRIP_H));
   text_layer_set_background_color(s_date_layer, GColorClear);
   text_layer_set_text_color(s_date_layer, GColorWhite);
   text_layer_set_font(s_date_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
