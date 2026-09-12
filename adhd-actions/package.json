@@ -1,0 +1,26 @@
+{
+  "name": "adhd-actions",
+  "author": "MakeAwesomeHappen",
+  "version": "1.0.0",
+  "keywords": ["pebble-app"],
+  "private": true,
+  "dependencies": {},
+  "pebble": {
+    "displayName": "ADHD Actions",
+    "uuid": "c10c885c-efac-4c33-b33c-834d358b4690",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": ["emery"],
+    "watchapp": {
+      "watchface": false
+    },
+    "capabilities": ["configurable"],
+    "messageKeys": [
+      "apiText",
+      "action"
+    ],
+    "resources": {
+      "media": []
+    }
+  }
+}

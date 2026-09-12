@@ -16,6 +16,14 @@ pebble install --emulator emery       # install on the emery emulator
 pebble install --cloudpebble          # install over the phone app (Dev Connect)
 ```
 
+## Companion actions app
+
+`adhd-actions/` is a separate Emery watchapp for Pebble Time 2. It provides
+hardware-button actions for `Complete` and `Refresh` while this project remains
+the always-visible watchface. Build it from that directory with the same
+commands. It reuses the hosted settings page and fields, but settings are stored
+separately for each app, so configure the Todoist token and label for both apps.
+
 ## API text
 
 The watchface pulls one line of text from your own endpoint via PebbleKit JS:
