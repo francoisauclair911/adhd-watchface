@@ -45,7 +45,7 @@ static void sep_update_proc(Layer *layer, GContext *ctx) {
   graphics_fill_rect(ctx, GRect(0, SEP_H + WHITE_BAND_H, bounds.size.w, SEP_H), 0, GCornerNone);
 }
 
-// API text: white with a 1px black outline (matching the icon style), vertically centered.
+// API text: black, vertically centered.
 static void api_text_update_proc(Layer *layer, GContext *ctx) {
   const GRect bounds = layer_get_bounds(layer);
   const GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
@@ -60,20 +60,6 @@ static void api_text_update_proc(Layer *layer, GContext *ctx) {
   const int16_t top = (bounds.size.h - used.h < 0) ? 0 : (bounds.size.h - used.h) / 2;
 
   graphics_context_set_text_color(ctx, GColorBlack);
-  graphics_draw_text(ctx, s_api_text, font,
-                     GRect(0, top - 1, bounds.size.w, used.h),
-                     GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-  graphics_draw_text(ctx, s_api_text, font,
-                     GRect(0, top + 1, bounds.size.w, used.h),
-                     GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-  graphics_draw_text(ctx, s_api_text, font,
-                     GRect(-1, top, bounds.size.w, used.h),
-                     GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-  graphics_draw_text(ctx, s_api_text, font,
-                     GRect(1, top, bounds.size.w, used.h),
-                     GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
-
-  graphics_context_set_text_color(ctx, GColorWhite);
   graphics_draw_text(ctx, s_api_text, font,
                      GRect(0, top, bounds.size.w, used.h),
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter, NULL);
