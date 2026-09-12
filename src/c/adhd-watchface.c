@@ -27,7 +27,7 @@ static TextLayer *s_clock_layer;
 static TextLayer *s_battery_layer;
 static TextLayer *s_date_layer;
 
-static char s_api_text[API_TEXT_MAX + 1];
+static char s_api_text[API_TEXT_MAX + 1] = "add src/pkjs/config.js";
 static char s_time_buffer[8];
 static char s_battery_buffer[8];
 static char s_date_buffer[16];
@@ -47,10 +47,6 @@ static void sep_update_proc(Layer *layer, GContext *ctx) {
 
 // API text: white with a 1px black outline (matching the icon style), vertically centered.
 static void api_text_update_proc(Layer *layer, GContext *ctx) {
-  if (s_api_text[0] == '\0') {
-    return;
-  }
-
   const GRect bounds = layer_get_bounds(layer);
   const GFont font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
   const GRect measure_box = GRect(0, 0, bounds.size.w, bounds.size.h);
