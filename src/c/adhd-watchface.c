@@ -27,7 +27,9 @@ static TextLayer *s_clock_layer;
 static TextLayer *s_battery_layer;
 static TextLayer *s_date_layer;
 
-static char s_api_text[API_TEXT_MAX + 1] = "laboriosam mollitia et enim quasi adipisci quia provident illum";
+#define PERSIST_KEY_API_TEXT 1
+
+static char s_api_text[API_TEXT_MAX + 1] = "";
 static char s_time_buffer[8];
 static char s_battery_buffer[8];
 static char s_date_buffer[16];
@@ -118,6 +120,7 @@ static void inbox_received_handler(DictionaryIterator *iter, void *context) {
   if (t && t->type == TUPLE_CSTRING) {
     strncpy(s_api_text, t->value->cstring, API_TEXT_MAX);
     s_api_text[API_TEXT_MAX] = '\0';
+    persist_write_string(PERSIST_KEY_API_TEXT, s_api_text);
     layer_mark_dirty(s_api_layer);
   }
 }
@@ -190,6 +193,10 @@ static void prv_window_unload(Window *window) {
 }
 
 static void prv_init(void) {
+  if (persist_exists(PERSIST_KEY_API_TEXT)) {
+    persist_read_string(PERSIST_KEY_API_TEXT, s_api_text, sizeof(s_api_text));
+  }
+
   s_window = window_create();
   window_set_background_color(s_window, THEME_COLOR);
   window_set_window_handlers(s_window, (WindowHandlers){
