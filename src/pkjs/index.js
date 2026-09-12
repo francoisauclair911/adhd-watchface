@@ -3,8 +3,15 @@
 // Hosted settings page (GitHub Pages)
 var SETTINGS_URL = 'https://francoisauclair911.github.io/adhd-watchface/';
 
-var config = null;
-try { config = require('config'); } catch (e) { config = null; }
+// Bundled defaults for the 'endpoint' source. The settings page (localStorage)
+// overrides these. NOTE: require('config') is broken in SDK webpack builds
+// (_message_key_wrapper rejects every module except message_keys), so the
+// defaults are inlined here instead.
+var config = {
+  url:      'https://jsonplaceholder.typicode.com/todos/5',
+  textPath: 'title',
+  headers:  {}
+};
 
 var FETCH_TIMEOUT_MS = 8000;
 var MAX_TEXT_LEN = 120;
@@ -79,7 +86,8 @@ function fetchTodoist() {
   var label = currentSettings.todoistLabel;
 
   if (!token || !label) {
-    sendText('configure todoist');
+    inFlight = false;
+    sendText('set up todoist');
     return;
   }
 
@@ -87,54 +95,66 @@ function fetchTodoist() {
   console.log('Fetching Todoist: ' + url);
 
   var settled = false;
-  var timer = setTimeout(function() {
-    if (settled) { return; }
-    settled = true; inFlight = false;
-    req.abort();
-    sendText('offline');
-  }, FETCH_TIMEOUT_MS);
+  var req     = null;
+  var timer   = null;
 
-  var req = new XMLHttpRequest();
-  req.open('GET', url, true);
-  req.setRequestHeader('Authorization', 'Bearer ' + token);
-  req.onload = function() {
+  function done(err) {
     if (settled) { return; }
-    settled = true; inFlight = false;
-    clearTimeout(timer);
-    if (req.status === 401 || req.status === 403) { sendText('auth error'); return; }
-    if (req.status !== 200) { sendText('offline'); return; }
+    settled = true;
+    inFlight = false;
+    if (timer) { clearTimeout(timer); }
+    if (err) {
+      console.log('Todoist fetch failed: ' + err);
+      sendText(err === 'auth' ? 'auth error' : 'offline');
+      return;
+    }
+    var text = null;
     try {
       var data    = JSON.parse(req.responseText);
-      var results = data.results;
-      if (!results || results.length === 0) {
-        currentTaskId = null;
-        sendText('all done!');
-        saveCachedText('all done!');
-        return;
+      var results = data && data.results;
+      if (Array.isArray(results) && results.length > 0 &&
+          typeof results[0].content === 'string' && results[0].content.length > 0) {
+        currentTaskId = results[0].id;
+        text = results[0].content;
       }
-      currentTaskId = results[0].id;
-      var title = results[0].content;
-      if (typeof title !== 'string' || title.length === 0) {
-        sendText('all done!');
-        saveCachedText('all done!');
-        return;
-      }
-      sendText(title);
-      saveCachedText(title);
-    } catch (e) { sendText('offline'); }
-  };
-  req.onerror = function() {
-    if (settled) { return; }
-    settled = true; inFlight = false;
-    clearTimeout(timer);
-    sendText('offline');
-  };
-  req.send(null);
+    } catch (e) {}
+    if (text === null) {
+      currentTaskId = null;
+      text = 'all done!';
+    }
+    sendText(text);
+    saveCachedText(text);
+  }
+
+  timer = setTimeout(function() {
+    try { if (req) { req.abort(); } } catch (e) {}
+    done('timeout');
+  }, FETCH_TIMEOUT_MS);
+
+  try {
+    req = new XMLHttpRequest();
+    req.open('GET', url, true);
+    req.setRequestHeader('Authorization', 'Bearer ' + token);
+    req.onload = function() {
+      if (settled) { return; }
+      if (req.status === 401 || req.status === 403) { done('auth'); return; }
+      if (req.status !== 200) { done('http ' + req.status); return; }
+      done(null);
+    };
+    req.onerror = function() { done('network'); };
+    req.send(null);
+  } catch (e) {
+    done('setup: ' + e);
+  }
 }
 
 function fetchEndpoint() {
   var url = currentSettings.url;
-  if (!url) { return; }
+  if (!url) {
+    inFlight = false;
+    sendText('set up endpoint');
+    return;
+  }
 
   var headers = {};
   if (config && config.headers) {
@@ -150,36 +170,46 @@ function fetchEndpoint() {
   console.log('Fetching endpoint: ' + url);
 
   var settled = false;
-  var timer = setTimeout(function() {
-    if (settled) { return; }
-    settled = true; inFlight = false;
-    req.abort();
-    sendText('offline');
-  }, FETCH_TIMEOUT_MS);
+  var req     = null;
+  var timer   = null;
 
-  var req = new XMLHttpRequest();
-  req.open('GET', url, true);
-  for (var h in headers) {
-    if (headers.hasOwnProperty(h)) req.setRequestHeader(h, headers[h]);
-  }
-  req.onload = function() {
+  function done(err) {
     if (settled) { return; }
-    settled = true; inFlight = false;
-    clearTimeout(timer);
-    if (req.status !== 200) { sendText('offline'); return; }
+    settled = true;
+    inFlight = false;
+    if (timer) { clearTimeout(timer); }
+    if (err) {
+      console.log('Endpoint fetch failed: ' + err);
+      sendText('offline');
+      return;
+    }
     var text = null;
     try { text = getText(JSON.parse(req.responseText), textPath); } catch (e) {}
     if (typeof text !== 'string' || text.length === 0) { sendText('no data'); return; }
     sendText(text);
     saveCachedText(text);
-  };
-  req.onerror = function() {
-    if (settled) { return; }
-    settled = true; inFlight = false;
-    clearTimeout(timer);
-    sendText('offline');
-  };
-  req.send(null);
+  }
+
+  timer = setTimeout(function() {
+    try { if (req) { req.abort(); } } catch (e) {}
+    done('timeout');
+  }, FETCH_TIMEOUT_MS);
+
+  try {
+    req = new XMLHttpRequest();
+    req.open('GET', url, true);
+    for (var h in headers) {
+      if (headers.hasOwnProperty(h)) req.setRequestHeader(h, headers[h]);
+    }
+    req.onload = function() {
+      if (settled) { return; }
+      done(req.status !== 200 ? ('http ' + req.status) : null);
+    };
+    req.onerror = function() { done('network'); };
+    req.send(null);
+  } catch (e) {
+    done('setup: ' + e);
+  }
 }
 
 function fetchText() {
