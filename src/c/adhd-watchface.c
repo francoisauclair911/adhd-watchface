@@ -14,8 +14,6 @@
 #define THEME_COLOR GColorFromRGB(230, 110, 107)
 
 #define PERSIST_KEY_API_TEXT   1
-#define DOUBLE_TAP_WINDOW_MS   500
-#define STATUS_TIMEOUT_MS      10000
 
 static const char *const s_weekdays[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
 static const char *const s_months[]   = {"JAN", "FEB", "MAR", "APR", "MAY", "JUN",
@@ -35,58 +33,13 @@ static char s_battery_buffer[8];
 static char s_date_buffer[16];
 static int  s_battery_percent = 100;
 
-static uint32_t    s_first_tap_ms  = 0;
-static uint32_t    s_last_touch_ms = 0;
-static AppTimer   *s_tap_timer     = NULL;
-static AppTimer   *s_status_timer  = NULL;
-static char        s_prev_text[API_TEXT_MAX + 1] = "";
-
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-#define TOUCH_SUPPRESS_MS 800
-
-static uint32_t now_ms(void) {
-  time_t   secs = 0;
-  uint16_t ms   = 0;
-  time_ms(&secs, &ms);
-  return (uint32_t)secs * 1000u + ms;
-}
-
-static void set_status_text(const char *text) {
+static void inbox_apply_text(const char *text) {
   strncpy(s_api_text, text, API_TEXT_MAX);
   s_api_text[API_TEXT_MAX] = '\0';
+  persist_write_string(PERSIST_KEY_API_TEXT, s_api_text);
   layer_mark_dirty(s_api_layer);
-}
-
-// Watchdog: if the phone/JS side never answers after a tap shows a transient
-// status ("..."/"done!"), restore the last good text so the display can't get
-// stuck. Runs STATUS_TIMEOUT_MS after the status was shown.
-static void status_timeout(void *context) {
-  s_status_timer = NULL;
-  APP_LOG(APP_LOG_LEVEL_WARNING, "status timeout — no reply from JS");
-  set_status_text(s_prev_text[0] ? s_prev_text : "offline");
-}
-
-static void show_status(const char *text) {
-  strncpy(s_prev_text, s_api_text, API_TEXT_MAX);
-  s_prev_text[API_TEXT_MAX] = '\0';
-  set_status_text(text);
-  if (s_status_timer) { app_timer_cancel(s_status_timer); }
-  s_status_timer = app_timer_register(STATUS_TIMEOUT_MS, status_timeout, NULL);
-}
-
-static void send_message(uint8_t key, uint8_t value) {
-  DictionaryIterator *iter;
-  AppMessageResult res = app_message_outbox_begin(&iter);
-  if (res != APP_MSG_OK) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "outbox_begin failed: %d", (int)res);
-    return;
-  }
-  dict_write_uint8(iter, key, value);
-  res = app_message_outbox_send();
-  if (res != APP_MSG_OK) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "outbox_send failed: %d", (int)res);
-  }
 }
 
 // ── draw callbacks ────────────────────────────────────────────────────────────
@@ -145,68 +98,12 @@ static void battery_update(BatteryChargeState state) {
   text_layer_set_text(s_battery_layer, s_battery_buffer);
 }
 
-// ── gesture handling ──────────────────────────────────────────────────────────
-
-static void on_single_tap(void *context) {
-  s_tap_timer    = NULL;
-  s_first_tap_ms = 0;
-  show_status("...");
-  vibes_short_pulse();
-  send_message(MESSAGE_KEY_fetch, 1);
-}
-
-static void on_double_tap(void) {
-  if (s_tap_timer) {
-    app_timer_cancel(s_tap_timer);
-    s_tap_timer = NULL;
-  }
-  s_first_tap_ms = 0;
-  show_status("done!");
-  vibes_double_pulse();
-  send_message(MESSAGE_KEY_completeTask, 1);
-}
-
-static void handle_gesture(void) {
-  const uint32_t now = now_ms();
-  if (s_first_tap_ms != 0 && (now - s_first_tap_ms) < DOUBLE_TAP_WINDOW_MS) {
-    on_double_tap();
-  } else {
-    s_first_tap_ms = now;
-    if (s_tap_timer) { app_timer_cancel(s_tap_timer); }
-    s_tap_timer = app_timer_register(DOUBLE_TAP_WINDOW_MS, on_single_tap, NULL);
-  }
-}
-
-// Touch handler (emery touchscreen) — whole screen
-static void touch_handler(const TouchEvent *event, void *context) {
-  if (event->type != TouchEvent_Touchdown) { return; }
-  // non_navigational == unarmed contact on the idle watchface: exactly the taps we want
-  if (!event->non_navigational) { return; }
-  s_last_touch_ms = now_ms();
-  handle_gesture();
-}
-
-// Accel tap fallback (emulator + wrist flick on device).
-// Suppressed right after a screen tap so one physical tap isn't counted twice.
-static void accel_tap_handler(AccelAxisType axis, int32_t direction) {
-  const uint32_t now = now_ms();
-  if (s_last_touch_ms != 0 && (now - s_last_touch_ms) < TOUCH_SUPPRESS_MS) { return; }
-  handle_gesture();
-}
-
 // ── app message ───────────────────────────────────────────────────────────────
 
 static void inbox_received_handler(DictionaryIterator *iter, void *context) {
   Tuple *t = dict_find(iter, MESSAGE_KEY_apiText);
   if (t && t->type == TUPLE_CSTRING) {
-    if (s_status_timer) {
-      app_timer_cancel(s_status_timer);
-      s_status_timer = NULL;
-    }
-    strncpy(s_api_text, t->value->cstring, API_TEXT_MAX);
-    s_api_text[API_TEXT_MAX] = '\0';
-    persist_write_string(PERSIST_KEY_API_TEXT, s_api_text);
-    layer_mark_dirty(s_api_layer);
+    inbox_apply_text(t->value->cstring);
     APP_LOG(APP_LOG_LEVEL_INFO, "apiText received (%d chars)", (int)strlen(s_api_text));
   }
 }
@@ -262,23 +159,10 @@ static void prv_window_load(Window *window) {
   battery_update(battery_state_service_peek());
   tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
 
-  touch_service_subscribe(touch_handler, NULL);
-  accel_tap_service_subscribe(accel_tap_handler);
-
   update_time();
 }
 
 static void prv_window_unload(Window *window) {
-  if (s_tap_timer) {
-    app_timer_cancel(s_tap_timer);
-    s_tap_timer = NULL;
-  }
-  if (s_status_timer) {
-    app_timer_cancel(s_status_timer);
-    s_status_timer = NULL;
-  }
-  touch_service_unsubscribe();
-  accel_tap_service_unsubscribe();
   tick_timer_service_unsubscribe();
   battery_state_service_unsubscribe();
 

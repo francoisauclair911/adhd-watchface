@@ -16,7 +16,6 @@ var config = {
 var FETCH_TIMEOUT_MS = 8000;
 var MAX_TEXT_LEN = 120;
 var TODOIST_FILTER_URL  = 'https://api.todoist.com/api/v1/tasks/filter';
-var TODOIST_CLOSE_URL   = 'https://api.todoist.com/api/v1/tasks/{id}/close';
 
 var currentSettings = {
   source:       'endpoint',
@@ -57,7 +56,6 @@ function saveCachedText(text) {
 var lastSentText  = null;
 var inFlight      = false;
 var pollTimer     = null;
-var currentTaskId = null;
 
 function sendText(text) {
   var msg = String(text).substring(0, MAX_TEXT_LEN);
@@ -114,12 +112,10 @@ function fetchTodoist() {
       var results = data && data.results;
       if (Array.isArray(results) && results.length > 0 &&
           typeof results[0].content === 'string' && results[0].content.length > 0) {
-        currentTaskId = results[0].id;
         text = results[0].content;
       }
     } catch (e) {}
     if (text === null) {
-      currentTaskId = null;
       text = 'all done!';
     }
     sendText(text);
@@ -222,38 +218,6 @@ function fetchText() {
   }
 }
 
-function completeCurrentTask() {
-  if (currentSettings.source !== 'todoist') { return; }
-  var token  = currentSettings.todoistToken;
-  var taskId = currentTaskId;
-  if (!token) { return; }
-  if (!taskId) {
-    console.log('No task ID yet — fetching instead.');
-    lastSentText = null;
-    fetchText();
-    return;
-  }
-
-  console.log('Completing task: ' + taskId);
-  var url = TODOIST_CLOSE_URL.replace('{id}', taskId);
-  var req = new XMLHttpRequest();
-  req.open('POST', url, true);
-  req.setRequestHeader('Authorization', 'Bearer ' + token);
-  req.setRequestHeader('Content-Length', '0');
-  req.onload = function() {
-    if (req.status === 204 || req.status === 200) {
-      console.log('Task completed: ' + taskId);
-      currentTaskId = null;
-      lastSentText  = null;
-      fetchText();
-    } else {
-      console.log('Complete failed: HTTP ' + req.status);
-    }
-  };
-  req.onerror = function() { console.log('Complete request failed'); };
-  req.send(null);
-}
-
 function startPolling() {
   if (pollTimer) { clearInterval(pollTimer); }
   var ms = (currentSettings.pollSec || 180) * 1000;
@@ -299,20 +263,11 @@ Pebble.addEventListener('webviewclosed', function(e) {
     });
     if (Array.isArray(s.headers)) currentSettings.headers = s.headers;
     saveSettings(currentSettings);
-    lastSentText  = null;
-    currentTaskId = null;
+    lastSentText = null;
     startPolling();
     fetchText();
     console.log('Settings updated: ' + JSON.stringify(currentSettings));
   } catch (err) {
     console.log('Failed to parse settings: ' + err);
   }
-});
-
-Pebble.addEventListener('appmessage', function(e) {
-  if (!e.payload) { return; }
-  // Watch side switched to a transient state ("..."/"done!") — the next
-  // fetch may return the same task text, so force a resend.
-  if (e.payload.fetch        === 1) { lastSentText = null; fetchText(); }
-  if (e.payload.completeTask === 1) { lastSentText = null; completeCurrentTask(); }
 });
