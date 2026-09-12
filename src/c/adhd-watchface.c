@@ -5,7 +5,7 @@
 
 // Aura Essential layout for the Pebble Time 2 (200x228):
 //   top color block (API text) / black sep / white band (clock) / black sep / color strip
-#define TOP_BLOCK_H      76                                     // smaller top block
+#define TOP_BLOCK_H      90                                     // smaller top block
 #define SEP_H            6
 #define WHITE_BAND_Y     (TOP_BLOCK_H + SEP_H)                 // 82
 #define WHITE_BAND_H     68                                    // spans 82..149
@@ -145,7 +145,7 @@ static void prv_window_load(Window *window) {
   layer_add_child(window_layer, text_layer_get_layer(s_clock_layer));
 
   // battery indicator: bottom right, white text
-  s_battery_layer = text_layer_create(GRect(w - 60, 228 - 22, 58, 22));
+  s_battery_layer = text_layer_create(GRect(w - 60, 228 - 26, 58, 22));
   text_layer_set_background_color(s_battery_layer, GColorClear);
   text_layer_set_text_color(s_battery_layer, GColorWhite);
   text_layer_set_font(s_battery_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
@@ -154,7 +154,7 @@ static void prv_window_load(Window *window) {
   layer_add_child(window_layer, text_layer_get_layer(s_battery_layer));
 
   // date indicator: bottom left, white text
-  s_date_layer = text_layer_create(GRect(8, 228 - 22, 110, 22));
+  s_date_layer = text_layer_create(GRect(8, 228 - 26, 110, 22));
   text_layer_set_background_color(s_date_layer, GColorClear);
   text_layer_set_text_color(s_date_layer, GColorWhite);
   text_layer_set_font(s_date_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
