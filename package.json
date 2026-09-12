@@ -1,0 +1,33 @@
+{
+  "name": "adhd-watchface",
+  "author": "MakeAwesomeHappen",
+  "version": "1.0.0",
+  "keywords": ["pebble-app"],
+  "private": true,
+  "dependencies": {},
+  "pebble": {
+    "displayName": "ADHD",
+    "uuid": "481f414a-768a-4d0e-ae76-a83506e4ff15",
+    "sdkVersion": "3",
+    "enableMultiJS": true,
+    "targetPlatforms": [
+      "emery"
+    ],
+    "watchapp": {
+      "watchface": true
+    },
+    "messageKeys": [
+      "apiText",
+      "fetch"
+    ],
+    "resources": {
+      "media": [
+        {
+          "type": "font",
+          "name": "FONT_BEBAS_88",
+          "file": "fonts/BebasNeue-Regular.ttf"
+        }
+      ]
+    }
+  }
+}
