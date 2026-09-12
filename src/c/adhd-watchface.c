@@ -1,7 +1,5 @@
 #include <pebble.h>
-
-#define KEY_API_TEXT 0
-#define KEY_FETCH 1
+#include <message_keys.auto.h>
 
 #define API_TEXT_MAX 120
 
@@ -79,7 +77,7 @@ static void battery_update(BatteryChargeState state) {
 }
 
 static void inbox_received_handler(DictionaryIterator *iter, void *context) {
-  Tuple *t = dict_find(iter, KEY_API_TEXT);
+  Tuple *t = dict_find(iter, MESSAGE_KEY_apiText);
   if (t && t->type == TUPLE_CSTRING) {
     strncpy(s_api_text, t->value->cstring, API_TEXT_MAX);
     s_api_text[API_TEXT_MAX] = '\0';
